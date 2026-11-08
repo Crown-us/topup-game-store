@@ -1,226 +1,231 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, QrCode, Copy, Check, Zap, MessageSquare } from "lucide-react";
+import { Check, CheckCircle2, Clock, Copy, Loader2, MessageCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
-export default function InvoicePage({
-  params,
-}: {
-  params: Promise<{ orderId: string }>;
-}) {
+const WA_CS = "6285117394878";
+const PAY_WINDOW_S = 15 * 60;
+
+type Status = "pending" | "processing" | "paid" | "expired";
+
+const rp = (n: number) => "Rp " + n.toLocaleString("id-ID");
+const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Navbar />
+      <main className="wrap flex-1 py-8 md:py-10">
+        <div className="mx-auto max-w-2xl">{children}</div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+/**
+ * Orders are not stored on a server yet, so an invoice only exists right after
+ * checkout (its details travel in the URL). Anything else is "not found".
+ */
+function InvoiceNotFound({ orderId }: { orderId: string }) {
+  return (
+    <Shell>
+      <div className="panel p-8 text-center">
+        <h1 className="text-2xl font-extrabold">Invoice {orderId} nggak ketemu</h1>
+        <p className="mx-auto mt-2 max-w-[46ch]" style={{ color: "var(--text-2)" }}>
+          Toko ini masih mode demo dan belum menyimpan pesanan di server, jadi invoice cuma bisa dibuka langsung setelah checkout.
+          Kalau kamu yakin pernah bayar, kirim nomor invoice ke CS.
+        </p>
+        <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+          <a
+            href={`https://wa.me/${WA_CS}?text=${encodeURIComponent(`Halo admin, saya mau tanya invoice ${orderId}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="buy-btn inline-flex min-h-12 items-center justify-center px-5"
+          >
+            Tanya CS di WhatsApp
+          </a>
+          <Link href="/#games" className="inline-flex min-h-12 items-center justify-center rounded-xl px-5 font-semibold hover:bg-[var(--panel-2)]" style={{ border: "1.5px solid var(--line)" }}>
+            Belanja lagi
+          </Link>
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+export default function InvoicePage({ params }: { params: Promise<{ orderId: string }> }) {
   const { orderId } = use(params);
   const sp = useSearchParams();
 
-  const game  = sp.get("game")  ?? "Mobile Legends";
-  const item  = sp.get("item")  ?? "Weekly Diamond Pass";
-  const price = Number(sp.get("price") ?? 28500);
-  const wa    = sp.get("wa")    ?? "—";
+  const game = sp.get("game");
+  const item = sp.get("item");
+  const price = Number(sp.get("price"));
+  const pay = sp.get("pay");
+  const wa = sp.get("wa");
 
-  type Status = "pending" | "processing" | "success";
-  const [status, setStatus]     = useState<Status>("pending");
-  const [copied, setCopied]     = useState(false);
-  const [timeLeft, setTimeLeft] = useState(900); // 15 min
+  const [status, setStatus] = useState<Status>("pending");
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(PAY_WINDOW_S);
 
   useEffect(() => {
-    const t = setInterval(() => setTimeLeft((s) => Math.max(0, s - 1)), 1000);
+    if (status !== "pending") return;
+    const t = setInterval(() => {
+      setTimeLeft((s) => {
+        if (s <= 1) {
+          setStatus("expired");
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [status]);
 
-  const fmt = (s: number) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  if (!game || !item || !Number.isFinite(price) || price <= 0) return <InvoiceNotFound orderId={orderId} />;
 
-  const copyId = () => {
-    navigator.clipboard.writeText(orderId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(orderId);
+      setCopied(true);
+      setCopyFailed(false);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyFailed(true);
+    }
   };
 
   const simulatePay = () => {
     setStatus("processing");
-    setTimeout(() => setStatus("success"), 2500);
+    setTimeout(() => setStatus("paid"), 1500);
   };
 
-  /* Label style */
-  const labelStyle = { color: "var(--txt-muted)", fontFamily: "var(--font-body)" };
-  const valueStyle = { color: "var(--txt-primary)", fontFamily: "var(--font-body)" };
+  const rows: [string, string][] = [
+    ["Game", game],
+    ["Item", item],
+    ["Pembayaran", pay ?? "QRIS"],
+    ["WhatsApp", wa || "Tidak diisi"],
+  ];
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
-      <Navbar />
+    <Shell>
+      <div className="demo-note mb-5" role="note">
+        <p>
+          <strong>Mode demo.</strong> Payment gateway belum tersambung. Nggak ada uang yang ditagih dan nggak ada item yang dikirim ke akunmu.
+        </p>
+      </div>
 
-      <main className="max-w-[720px] mx-auto px-4 sm:px-6 py-10 space-y-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold"
-          style={{ color: "var(--txt-muted)" }}
-        >
-          <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
-        </Link>
-
-        {/* ── Main Invoice Card ───────────────────────────── */}
-        <div className="surface p-6 sm:p-8 space-y-7" style={{ borderRadius: 16 }}>
-
-          {/* Header: ID + Status */}
-          <div
-            className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6"
-            style={{ borderBottom: "1px solid var(--border)" }}
-          >
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--txt-muted)" }}>
-                Nomor Invoice
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <h1 className="font-extrabold text-xl" style={{ fontFamily: "var(--font-display)", color: "var(--txt-primary)" }}>
-                  {orderId}
-                </h1>
-                <button
-                  onClick={copyId}
-                  className="p-1.5 rounded-lg transition-colors"
-                  style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
-                >
-                  {copied
-                    ? <Check className="w-3.5 h-3.5" style={{ color: "var(--green)" }} />
-                    : <Copy className="w-3.5 h-3.5" style={{ color: "var(--txt-muted)" }} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Status chip */}
-            {status === "pending" && (
-              <div
-                className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-bold"
-                style={{ background: "#FFF7ED", color: "#B45309", border: "1px solid #FDE68A" }}
-              >
-                <Clock className="w-4 h-4 animate-spin" />
-                Menunggu Pembayaran · {fmt(timeLeft)}
-              </div>
-            )}
-            {status === "processing" && (
-              <div
-                className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-bold"
-                style={{ background: "var(--blue-light)", color: "var(--blue)", border: "1px solid rgba(41,82,227,0.2)" }}
-              >
-                <Zap className="w-4 h-4 animate-bounce" />
-                Memproses Diamond…
-              </div>
-            )}
-            {status === "success" && (
-              <div
-                className="px-3.5 py-2 rounded-full flex items-center gap-2 text-xs font-bold"
-                style={{ background: "var(--green-light)", color: "var(--green)", border: "1px solid rgba(0,196,140,0.25)" }}
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Pembayaran Berhasil!
-              </div>
-            )}
-          </div>
-
-          {/* QRIS Box — only when pending */}
-          {status === "pending" && (
-            <div
-              className="p-6 rounded-xl flex flex-col items-center gap-5 text-center"
-              style={{ background: "var(--bg)", border: "1.5px solid var(--border)" }}
-            >
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--blue)" }}>
-                  Scan QRIS untuk Membayar
-                </p>
-                <p className="text-xs mt-1" style={{ color: "var(--txt-muted)" }}>
-                  DANA · OVO · GoPay · ShopeePay · LinkAja · Mobile Banking
-                </p>
-              </div>
-
-              {/* QR placeholder */}
-              <div
-                className="p-4 rounded-xl bg-white"
-                style={{ border: "3px solid var(--blue)", boxShadow: "0 6px 24px rgba(41,82,227,0.15)" }}
-              >
-                <QrCode className="w-44 h-44" style={{ color: "var(--txt-primary)" }} />
-              </div>
-
-              <div>
-                <p className="text-xs" style={{ color: "var(--txt-muted)" }}>Total Tagihan</p>
-                <p className="price-num font-black text-2xl" style={{ color: "var(--blue)", fontFamily: "var(--font-display)" }}>
-                  Rp {price.toLocaleString("id-ID")}
-                </p>
-              </div>
-
-              <button
-                onClick={simulatePay}
-                className="btn-primary w-full max-w-sm py-3.5 text-sm"
-              >
-                [Simulasi] Saya Sudah Bayar
+      <div className="panel space-y-6 p-5 sm:p-7">
+        <div className="flex flex-col justify-between gap-4 border-b pb-5 sm:flex-row sm:items-center" style={{ borderColor: "var(--line)" }}>
+          <div>
+            <p className="text-sm" style={{ color: "var(--text-2)" }}>Nomor invoice</p>
+            <div className="mt-0.5 flex items-center gap-1">
+              <h1 className="text-xl font-extrabold">{orderId}</h1>
+              <button type="button" onClick={copyId} className="icon-btn !border-transparent !bg-transparent" aria-label={copied ? "Nomor invoice tersalin" : "Salin nomor invoice"}>
+                {copied ? <Check className="size-4" style={{ color: "var(--ok)" }} /> : <Copy className="size-4" style={{ color: "var(--text-2)" }} />}
               </button>
             </div>
-          )}
-
-          {/* Success Banner */}
-          {status === "success" && (
-            <div
-              className="p-6 rounded-xl text-center space-y-2"
-              style={{ background: "var(--green-light)", border: "1px solid rgba(0,196,140,0.25)" }}
-            >
-              <CheckCircle2 className="w-10 h-10 mx-auto" style={{ color: "var(--green)" }} />
-              <h2 className="font-extrabold text-lg" style={{ fontFamily: "var(--font-display)", color: "var(--txt-primary)" }}>
-                Transaksi Berhasil!
-              </h2>
-              <p className="text-sm" style={{ color: "var(--txt-muted)" }}>
-                <span className="font-bold" style={{ color: "var(--txt-primary)" }}>{item}</span> telah dikirim ke
-                akunmu. Struk dikirim ke WhatsApp{" "}
-                <span className="font-bold" style={{ color: "var(--txt-primary)" }}>{wa}</span>.
-              </p>
-            </div>
-          )}
-
-          {/* Detail rows */}
-          <div
-            className="rounded-xl p-4 space-y-3 text-sm"
-            style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
-          >
-            {[
-              ["Game",          game],
-              ["Item",          item],
-              ["Nomor WA",      wa],
-              ["Total Bayar",   `Rp ${price.toLocaleString("id-ID")}`],
-            ].map(([k, v], i, arr) => (
-              <div
-                key={k}
-                className={`flex justify-between gap-4 ${i < arr.length - 1 ? "pb-3" : ""}`}
-                style={i < arr.length - 1 ? { borderBottom: "1px solid var(--border-soft)" } : undefined}
-              >
-                <span style={labelStyle}>{k}</span>
-                <span
-                  className={i === arr.length - 1 ? "price-num font-extrabold" : "font-semibold"}
-                  style={{ ...valueStyle, color: i === arr.length - 1 ? "var(--blue)" : "var(--txt-primary)" }}
-                >
-                  {v}
-                </span>
-              </div>
-            ))}
+            <p aria-live="polite" className="text-xs" style={{ color: copyFailed ? "var(--danger)" : "var(--ok)" }}>
+              {copied ? "Tersalin." : copyFailed ? "Browser menolak salin otomatis. Salin nomornya manual ya." : ""}
+            </p>
           </div>
 
-          {/* CS Button */}
-          <div
-            className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4"
-            style={{ borderTop: "1px solid var(--border)" }}
-          >
-            <p className="text-xs" style={{ color: "var(--txt-muted)" }}>Ada kendala dengan transaksi ini?</p>
-            <a
-              href={`https://wa.me/6285117394878?text=Halo%20Admin%2C%20saya%20ingin%20tanya%20invoice%20${orderId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-              style={{ background: "var(--bg)", border: "1.5px solid var(--border)", color: "var(--txt-primary)" }}
-            >
-              <MessageSquare className="w-4 h-4" style={{ color: "var(--green)" }} />
-              Hubungi CS via WhatsApp
-            </a>
-          </div>
+          <p role="status" aria-live="polite">
+            {status === "pending" && (
+              <span className="status" style={{ background: "rgba(255,210,63,.12)", color: "var(--coin)" }}>
+                <Clock className="size-4" /> Menunggu pembayaran, sisa {mmss(timeLeft)}
+              </span>
+            )}
+            {status === "processing" && (
+              <span className="status" style={{ background: "var(--cobalt-tint)", color: "var(--link)" }}>
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> Mengecek pembayaran
+              </span>
+            )}
+            {status === "paid" && (
+              <span className="status" style={{ background: "var(--ok-tint)", color: "var(--ok)" }}>
+                <CheckCircle2 className="size-4" /> Pembayaran simulasi berhasil
+              </span>
+            )}
+            {status === "expired" && (
+              <span className="status" style={{ background: "rgba(255,92,108,.12)", color: "var(--danger)" }}>
+                Waktu bayar habis
+              </span>
+            )}
+          </p>
         </div>
-      </main>
-    </div>
+
+        {status === "pending" && (
+          <div className="flex flex-col items-center gap-4 rounded-xl p-5 text-center" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }}>
+            <h2 className="font-bold">Bayar pakai QRIS</h2>
+            <div
+              className="grid size-48 place-items-center rounded-xl p-4 text-sm"
+              style={{ border: "2px dashed var(--line)", color: "var(--text-2)" }}
+              role="img"
+              aria-label="Tempat kode QRIS, belum aktif"
+            >
+              Kode QRIS asli muncul di sini setelah payment gateway tersambung.
+            </div>
+            <div>
+              <p className="text-sm" style={{ color: "var(--text-2)" }}>Total tagihan</p>
+              <p className="choice-price text-2xl">{rp(price)}</p>
+            </div>
+            <button type="button" onClick={simulatePay} className="btn-primary min-h-12 w-full max-w-sm">
+              Simulasikan pembayaran (demo)
+            </button>
+          </div>
+        )}
+
+        {status === "paid" && (
+          <div className="space-y-2 rounded-xl p-5 text-center" style={{ background: "var(--ok-tint)", border: "1px solid rgba(47,213,127,.3)" }}>
+            <CheckCircle2 className="mx-auto size-9" style={{ color: "var(--ok)" }} />
+            <h2 className="text-lg font-extrabold">Simulasi selesai</h2>
+            <p className="text-sm" style={{ color: "var(--text-2)" }}>
+              Di versi live, langkah berikutnya adalah mengirim <strong style={{ color: "var(--text)" }}>{item}</strong> ke akunmu dan struk ke WhatsApp.
+              Di mode demo ini nggak ada yang dikirim.
+            </p>
+          </div>
+        )}
+
+        {status === "expired" && (
+          <div className="space-y-3 rounded-xl p-5 text-center" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }}>
+            <h2 className="font-bold">Waktu pembayaran 15 menit sudah habis</h2>
+            <p className="text-sm" style={{ color: "var(--text-2)" }}>Buat pesanan baru untuk dapat kode bayar yang baru.</p>
+            <Link href="/#games" className="btn-primary inline-flex min-h-12 px-6">Pesan ulang</Link>
+          </div>
+        )}
+
+        <dl className="space-y-3 rounded-xl p-4 text-sm" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }}>
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex justify-between gap-4">
+              <dt style={{ color: "var(--text-2)" }}>{k}</dt>
+              <dd className="text-right font-semibold">{v}</dd>
+            </div>
+          ))}
+          <div className="flex justify-between gap-4 border-t pt-3" style={{ borderColor: "var(--line)" }}>
+            <dt style={{ color: "var(--text-2)" }}>Total bayar</dt>
+            <dd className="choice-price">{rp(price)}</dd>
+          </div>
+        </dl>
+
+        <div className="flex flex-col items-center justify-between gap-3 border-t pt-5 sm:flex-row" style={{ borderColor: "var(--line)" }}>
+          <p className="text-sm" style={{ color: "var(--text-2)" }}>Ada kendala dengan pesanan ini?</p>
+          <a
+            href={`https://wa.me/${WA_CS}?text=${encodeURIComponent(`Halo admin, saya mau tanya invoice ${orderId}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold hover:bg-[var(--panel-2)]"
+            style={{ border: "1.5px solid var(--line)" }}
+          >
+            <MessageCircle className="size-4" style={{ color: "var(--ok)" }} />
+            Chat CS di WhatsApp
+          </a>
+        </div>
+      </div>
+    </Shell>
   );
 }

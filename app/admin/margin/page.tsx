@@ -222,7 +222,7 @@ export default function AdminMarginShadcnLightPage() {
   }, [filteredProducts]);
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 text-zinc-950 font-sans pb-24">
+    <div className="min-h-screen bg-zinc-50 text-zinc-950 font-sans pb-24">
       {/* ─── Top Navbar (shadcn style header) ─────────────────── */}
       <header className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
