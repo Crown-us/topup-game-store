@@ -1,251 +1,135 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
-import {
-  Search,
-  Receipt,
-  Zap,
-  ShieldCheck,
-  QrCode,
-  Sparkles,
-  SlidersHorizontal,
-  Flame,
-  ArrowRight,
-  X,
-  Gamepad2,
-  Ticket,
-  Tv,
-} from "lucide-react";
-import { todayStat, gamesData, Game } from "@/lib/games";
+import { useEffect, useRef, useState } from "react";
+import { Receipt, Search, X } from "lucide-react";
+import { gamesData } from "@/lib/games";
+import GameImg from "@/components/GameImg";
 
-export default function Navbar({
-  onSearch,
-}: {
-  onSearch?: (query: string) => void;
-}) {
+function SearchBox({ autoFocus, onPick }: { autoFocus?: boolean; onPick?: () => void }) {
   const [query, setQuery] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
-  const [searchResults, setSearchResults] = useState<Game[]>([]);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQuery(val);
-    onSearch?.(val);
-
-    if (val.trim()) {
-      const q = val.toLowerCase();
-      const matched = gamesData.filter(
-        (g) =>
-          g.name.toLowerCase().includes(q) ||
-          g.shortName.toLowerCase().includes(q) ||
-          g.publisher.toLowerCase().includes(q) ||
-          g.category.toLowerCase().includes(q)
-      );
-      setSearchResults(matched.slice(0, 6));
-    } else {
-      setSearchResults([]);
-    }
-  };
-
-  const clearSearch = () => {
-    setQuery("");
-    setSearchResults([]);
-    onSearch?.("");
-  };
-
-  // Close search popover when clicked outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsFocused(false);
-      }
+    const close = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  const q = query.trim().toLowerCase();
+  const results = q
+    ? gamesData
+        .filter((g) => [g.name, g.shortName, g.publisher].some((v) => v.toLowerCase().includes(q)))
+        .slice(0, 6)
+    : [];
+
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-gray-200/90 shadow-sm">
-      {/* ── Top Micro Announcement Bar ── */}
-      <div className="w-full bg-[#F3F4F8] border-b border-gray-200/80 py-1.5 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-gray-600">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
-            </span>
-            <span className="text-gray-900 font-semibold font-display">Server Online 24 Jam</span>
-            <span className="text-gray-300">·</span>
-            <span className="text-[#534AB7] font-semibold">
-              {todayStat.totalOrders} order diproses
-            </span>
-            <span className="text-emerald-600 font-bold">
-              ({todayStat.successRate} sukses)
-            </span>
-          </div>
+    <div ref={boxRef} className="relative w-full">
+      <label className="search">
+        <Search className="size-4 shrink-0" style={{ color: "var(--mute)" }} />
+        <input
+          autoFocus={autoFocus}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+          placeholder="Cari game atau voucher"
+          aria-label="Cari game atau voucher"
+        />
+        {query && (
+          <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery("")} className="tap -mr-3">
+            <X className="size-4" style={{ color: "var(--mute)" }} />
+          </button>
+        )}
+      </label>
 
-          <div className="hidden md:flex items-center gap-4 font-medium text-gray-600 font-display">
-            <span className="flex items-center gap-1">
-              <Zap className="size-3 text-[#534AB7]" />
-              <span>Instan 1–5 Detik</span>
-            </span>
-            <span className="text-gray-300">·</span>
-            <span className="flex items-center gap-1">
-              <QrCode className="size-3 text-[#534AB7]" />
-              <span>QRIS 0% Fee</span>
-            </span>
-            <span className="text-gray-300">·</span>
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="size-3 text-emerald-600" />
-              <span>100% Legal &amp; Bergaransi</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Main Gaming Navbar ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-          <div className="size-9 rounded-xl bg-[#534AB7] text-white flex items-center justify-center shadow-sm">
-            <Zap className="size-5 fill-current" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5 leading-none">
-              <span className="text-lg font-black tracking-tight text-[#1A1A2E] font-display">
-                Topup<span className="text-[#534AB7]">KD</span>
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-[#EEF2FF] text-[#534AB7] border border-[#E0E7FF] uppercase tracking-wider font-mono">
-                Store
-              </span>
-            </div>
-            <span className="block text-[10px] text-gray-500 font-medium tracking-wide mt-0.5 font-sans">
-              Portal Game &amp; Voucher No. 1
-            </span>
-          </div>
-        </Link>
-
-        {/* ── Center Prominent Search Bar ── */}
-        <div ref={dropdownRef} className="relative flex-1 max-w-xl hidden sm:block">
-          <div
-            className={`relative rounded-xl transition-all duration-200 ${
-              isFocused
-                ? "ring-2 ring-[#534AB7] bg-white shadow-md border-transparent"
-                : "border border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300"
-            }`}
-          >
-            <div className="relative flex items-center">
-              <Search
-                className={`size-4 absolute left-3.5 transition-colors ${
-                  isFocused ? "text-[#534AB7]" : "text-gray-400"
-                }`}
-              />
-              <input
-                type="text"
-                value={query}
-                onChange={handleChange}
-                onFocus={() => setIsFocused(true)}
-                placeholder="Cari game, voucher, streaming, atau produk disini..."
-                className="w-full pl-10 pr-10 py-2.5 rounded-xl text-xs font-medium bg-transparent text-[#1A1A2E] placeholder:text-gray-400 outline-none font-sans"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="absolute right-3 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="size-3.5" />
-                </button>
-              ) : (
-                <kbd className="absolute right-3 inline-flex h-5 select-none items-center gap-0.5 rounded border border-gray-200 bg-white px-1.5 font-mono text-[10px] font-semibold text-gray-400">
-                  /
-                </kbd>
-              )}
-            </div>
-          </div>
-
-          {/* Instant Search Popup Results */}
-          {isFocused && searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 max-h-96 overflow-y-auto space-y-1">
-              <div className="px-3 py-1.5 text-[10px] font-mono text-gray-500 uppercase tracking-wider flex items-center justify-between border-b border-gray-100">
-                <span>Hasil Pencarian ({searchResults.length})</span>
-                <span className="text-[#534AB7] font-bold">Klik untuk order</span>
-              </div>
-              {searchResults.map((g) => {
-                const lowest =
-                  g.nominals && g.nominals.length > 0
-                    ? Math.min(...g.nominals.map((n) => n.price))
-                    : 0;
-
-                return (
+      {open && q && (
+        <div className="dropdown">
+          {results.length === 0 ? (
+            <p className="px-3 py-3 text-sm" style={{ color: "var(--text-2)" }}>
+              &ldquo;{query}&rdquo; belum tersedia. Coba nama game lain.
+            </p>
+          ) : (
+            <ul>
+              {results.map((g) => (
+                <li key={g.id}>
                   <Link
-                    key={g.id}
-                    href={`/order/${g.slug}`}
-                    onClick={() => setIsFocused(false)}
-                    className="flex items-center justify-between gap-3 p-2.5 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all group"
+                    href={g.comingSoon ? "#" : `/order/${g.slug}`}
+                    onClick={() => {
+                      setOpen(false);
+                      setQuery("");
+                      onPick?.();
+                    }}
+                    className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--panel-2)]"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="size-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-[#534AB7] font-display font-bold text-xs shrink-0">
-                        {g.shortName.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-[#1A1A2E] group-hover:text-[#534AB7] truncate font-display">
-                          {g.name}
-                        </div>
-                        <div className="text-[10px] text-gray-500 truncate font-sans">
-                          {g.publisher} · {g.category.toUpperCase()}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-[10px] text-gray-400 font-mono">Mulai</div>
-                      <div className="text-xs font-black text-amber-600 font-display price-num">
-                        Rp {lowest.toLocaleString("id-ID")}
-                      </div>
-                    </div>
+                    <GameImg src={g.image} name={g.shortName} size={36} className="size-9 rounded-lg object-cover text-xs" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{g.name}</span>
+                      <span className="block text-xs" style={{ color: "var(--mute)" }}>
+                        {g.comingSoon ? "Segera hadir" : g.publisher}
+                      </span>
+                    </span>
                   </Link>
-                );
-              })}
-            </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
+      )}
+    </div>
+  );
+}
 
-        {/* ── Right Action Buttons ── */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href="/admin/margin"
-            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 transition-all font-display"
-          >
-            <SlidersHorizontal className="size-3.5 text-[#534AB7]" />
-            <span>Admin</span>
+export default function Navbar() {
+  const [mobileSearch, setMobileSearch] = useState(false);
+
+  return (
+    <header className="nav">
+      <div className="wrap flex h-16 items-center gap-4 md:gap-8">
+        <Link href="/" className="wordmark shrink-0" aria-label="TopupKD, ke beranda">
+          Topup<b>KD</b>
+        </Link>
+
+        <div className="hidden max-w-xl flex-1 md:block">
+          <SearchBox />
+        </div>
+
+        <nav className="ml-auto flex items-center gap-2 sm:gap-5">
+          <Link href="/lacak" className="nav-link inline-flex min-h-11 items-center gap-1.5">
+            <Receipt className="size-4" />
+            <span>Cek transaksi</span>
           </Link>
-
-          <Link
-            href="/lacak"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 transition font-display"
-          >
-            <Receipt className="size-3.5 text-gray-500" />
-            <span className="hidden sm:inline">Lacak Order</span>
-          </Link>
-
           <a
             href="https://wa.me/6285117394878"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#534AB7] hover:bg-[#4338CA] text-white shadow-sm transition-all font-display"
+            className="nav-link hidden min-h-11 items-center lg:inline-flex"
           >
-            <Sparkles className="size-3.5" />
-            <span>CS 24/7</span>
+            Bantuan
           </a>
-        </div>
+          <button
+            type="button"
+            className="icon-btn md:hidden"
+            aria-label={mobileSearch ? "Tutup pencarian" : "Cari game"}
+            aria-expanded={mobileSearch}
+            onClick={() => setMobileSearch((v) => !v)}
+          >
+            {mobileSearch ? <X className="size-4" /> : <Search className="size-4" />}
+          </button>
+        </nav>
       </div>
+
+      {mobileSearch && (
+        <div className="wrap pb-3 md:hidden">
+          <SearchBox autoFocus onPick={() => setMobileSearch(false)} />
+        </div>
+      )}
     </header>
   );
 }
-

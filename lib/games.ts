@@ -43,16 +43,17 @@ export interface Game {
   nominals: NominalItem[];
 }
 
+/**
+ * Home banner. Only describe what the store really offers: no discount, promo
+ * code, or speed claim unless it is backed by real pricing or a working code field.
+ */
 export interface HeroBanner {
   id: string;
+  /** slug of the game the banner sells; the starting price is read from its nominals */
+  gameSlug: string;
   title: string;
   subtitle: string;
-  badge: string;
-  highlightText: string;
-  promoCode?: string;
   image: string;
-  bgColor: string;
-  linkUrl: string;
   btnText: string;
 }
 
@@ -68,40 +69,28 @@ export interface Article {
 
 export const heroBanners: HeroBanner[] = [
   {
-    id: "mlbb-promo",
-    title: "Mobile Legends: Weekly Diamond Pass",
-    subtitle: "Dapatkan 210 Diamonds hemat + bonus Starlight point harian langsung masuk ke akun.",
-    badge: "PROMO TERLARIS",
-    highlightText: "Mulai Rp 28.500",
-    promoCode: "MLBBHEMAT",
+    id: "mlbb",
+    gameSlug: "mobile-legends",
+    title: "Diamond Mobile Legends",
+    subtitle: "Cukup User ID dan Zone ID, tanpa password. Bayar pakai QRIS tanpa biaya admin.",
     image: "/logos/mobile-legends.png",
-    bgColor: "from-indigo-950 via-slate-900 to-zinc-950",
-    linkUrl: "/order/mobile-legends",
-    btnText: "Top Up Sekarang",
+    btnText: "Pilih nominal diamond",
   },
   {
-    id: "ff-promo",
-    title: "Free Fire Booyah Pass & Diamond",
-    subtitle: "Proses kilat 1–3 detik langsung masuk ke akun tanpa login password!",
-    badge: "INSTAN 24 JAM",
-    highlightText: "Bonus 50 Diamonds",
-    promoCode: "BOOYAHNOW",
+    id: "ff",
+    gameSlug: "free-fire",
+    title: "Diamond Free Fire",
+    subtitle: "Masukkan Player ID, pilih jumlah diamond, lalu bayar pakai QRIS, e-wallet, atau transfer bank.",
     image: "/logos/free-fire.png",
-    bgColor: "from-amber-950 via-slate-900 to-zinc-950",
-    linkUrl: "/order/free-fire",
-    btnText: "Beli Diamond FF",
+    btnText: "Pilih nominal diamond",
   },
   {
-    id: "vidio-promo",
-    title: "Paket Vidio Premier & Diamond EPL",
-    subtitle: "Nonton Premier League, BRI Liga 1, & Vidio Original Series tanpa jeda iklan.",
-    badge: "DISKON 40%",
-    highlightText: "Diskon s/d 40%",
-    promoCode: "VIDIOPROMO",
-    image: "/logos/razer-gold.png",
-    bgColor: "from-rose-950 via-slate-900 to-zinc-950",
-    linkUrl: "/order/vidio",
-    btnText: "Langganan Sekarang",
+    id: "vidio",
+    gameSlug: "vidio",
+    title: "Langganan Vidio",
+    subtitle: "Pilih paket Vidio, isi akunmu, dan bayar dengan cara yang paling gampang buat kamu.",
+    image: "/logos/vidio.png",
+    btnText: "Pilih paket Vidio",
   },
 ];
 
